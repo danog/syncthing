@@ -170,7 +170,13 @@ func IsParent(path, parent string) bool {
 		return path != "/"
 	}
 	if parent[len(parent)-1] != PathSeparator {
-		parent += pathSeparatorString
+		if !strings.HasPrefix(path, parent) {
+			return false
+		}
+		if len(path) <= len(parent) {
+			return false
+		}
+		return path[len(parent)] == PathSeparator
 	}
 	return strings.HasPrefix(path, parent)
 }
