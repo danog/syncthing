@@ -67,7 +67,7 @@ func (t *trashcan) Clean(ctx context.Context) error {
 	cutoff := time.Now().Add(time.Duration(-24*t.cleanoutDays) * time.Hour)
 	dirTracker := make(emptyDirTracker)
 
-	walkFn := func(path string, info fs.FileInfo, err error) error {
+	walkFn := func(path *fs.Path, info fs.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -79,22 +79,22 @@ func (t *trashcan) Clean(ctx context.Context) error {
 		}
 
 		if info.IsDir() && !info.IsSymlink() {
-			dirTracker.addDir(path)
+			dirTracker.addDir(path.StringCopy())
 			return nil
 		}
 
 		if info.ModTime().Before(cutoff) {
 			// The file is too old; remove it.
-			err = t.versionsFs.Remove(path)
+			err = t.versionsFs.Remove(path.String())
 		} else {
 			// Keep this file, and remember it so we don't unnecessarily try
 			// to remove this directory.
-			dirTracker.addFile(path)
+			dirTracker.addFile(path.StringCopy())
 		}
 		return err
 	}
 
-	if err := t.versionsFs.Walk(".", walkFn); err != nil {
+	if err := t.versionsFs.Walk(fs.NewPath("."), walkFn); err != nil {
 		return err
 	}
 

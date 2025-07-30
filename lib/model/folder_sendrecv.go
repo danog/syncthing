@@ -1954,22 +1954,22 @@ func (f *sendReceiveFolder) deleteDirOnDiskHandleChildren(dir string, scanChan c
 	var dirsToDelete []string
 	var hasIgnored, hasKnown, hasToBeScanned, hasReceiveOnlyChanged bool
 	var delErr error
-	err := f.mtimefs.Walk(dir, func(path string, info fs.FileInfo, err error) error {
-		if path == dir {
+	err := f.mtimefs.Walk(fs.NewPath(dir), func(path *fs.Path, info fs.FileInfo, err error) error {
+		if path.String() == dir {
 			return nil
 		}
 		if err != nil {
 			return err
 		}
-		switch match := f.ignores.Match(path); {
+		switch match := f.ignores.Match(path.String()); {
 		case match.IsDeletable():
 			if info.IsDir() {
-				dirsToDelete = append(dirsToDelete, path)
+				dirsToDelete = append(dirsToDelete, path.StringCopy())
 				return nil
 			}
 			fallthrough
-		case fs.IsTemporary(path):
-			if err := f.mtimefs.Remove(path); err != nil && delErr == nil {
+		case fs.IsTemporary(path.String()):
+			if err := f.mtimefs.Remove(path.String()); err != nil && delErr == nil {
 				delErr = err
 			}
 			return nil
@@ -1977,7 +1977,7 @@ func (f *sendReceiveFolder) deleteDirOnDiskHandleChildren(dir string, scanChan c
 			hasIgnored = true
 			return nil
 		}
-		cf, ok, err := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, path)
+		cf, ok, err := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, path.String())
 		if err != nil {
 			return err
 		}
@@ -1986,17 +1986,17 @@ func (f *sendReceiveFolder) deleteDirOnDiskHandleChildren(dir string, scanChan c
 			// Something appeared in the dir that we either are not
 			// aware of at all or that we think should be deleted
 			// -> schedule scan.
-			scanChan <- path
+			scanChan <- path.StringCopy()
 			hasToBeScanned = true
 			return nil
 		case ok && f.Type == config.FolderTypeReceiveOnly && cf.IsReceiveOnlyChanged():
 			hasReceiveOnlyChanged = true
 			return nil
 		}
-		diskFile, err := scanner.CreateFileInfo(info, path, f.mtimefs, f.SyncOwnership, f.SyncXattrs, f.XattrFilter)
+		diskFile, err := scanner.CreateFileInfo(info, path.String(), f.mtimefs, f.SyncOwnership, f.SyncXattrs, f.XattrFilter)
 		if err != nil {
 			// Lets just assume the file has changed.
-			scanChan <- path
+			scanChan <- path.StringCopy()
 			hasToBeScanned = true
 			return nil //nolint:nilerr
 		}
@@ -2010,7 +2010,7 @@ func (f *sendReceiveFolder) deleteDirOnDiskHandleChildren(dir string, scanChan c
 		}) {
 			// File on disk changed compared to what we have in db
 			// -> schedule scan.
-			scanChan <- path
+			scanChan <- path.StringCopy()
 			hasToBeScanned = true
 			return nil
 		}

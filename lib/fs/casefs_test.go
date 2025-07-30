@@ -297,7 +297,7 @@ func doubleWalkFS(fsys Filesystem, paths []string) error {
 
 func doubleWalkFSWithOtherOps(fsys Filesystem, paths []string, otherOpEvery int, otherOpPath string) error {
 	i := 0
-	if err := fsys.Walk("/", func(path string, info FileInfo, err error) error {
+	if err := fsys.Walk(NewPath("/"), func(path *Path, info FileInfo, err error) error {
 		i++
 		if otherOpEvery != 0 && i%otherOpEvery == 0 {
 			// l.Infoln("AAA", otherOpPath)
@@ -334,8 +334,8 @@ func fakefsForBenchmark(nfiles int, latency time.Duration) (Filesystem, []string
 	fsys := NewFilesystem(FilesystemTypeFake, fmt.Sprintf("fakefsForBenchmark?files=%d&insens=true&latency=%s", nfiles, latency))
 
 	var paths []string
-	if err := fsys.Walk("/", func(path string, info FileInfo, err error) error {
-		paths = append(paths, path)
+	if err := fsys.Walk(NewPath("/"), func(path *Path, info FileInfo, err error) error {
+		paths = append(paths, path.StringCopy())
 		return err
 	}); err != nil {
 		return nil, nil, err

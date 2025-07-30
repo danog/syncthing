@@ -341,7 +341,7 @@ func TestIssue1507(_ *testing.T) {
 	f := make(chan ScanResult, 100)
 	fn := w.walkAndHashFiles(context.TODO(), h, f)
 
-	fn("", nil, protocol.ErrClosed)
+	fn(fs.NewPath(""), nil, protocol.ErrClosed)
 }
 
 func TestWalkSymlinkUnix(t *testing.T) {

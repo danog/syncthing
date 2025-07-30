@@ -116,8 +116,8 @@ func TestMtimeFSWalk(t *testing.T) {
 	}
 
 	found := false
-	_ = walkFs.Walk("", func(path string, info FileInfo, err error) error {
-		if path == "file" {
+	_ = walkFs.Walk(NewPath(""), func(path *Path, info FileInfo, err error) error {
+		if path.String() == "file" {
 			found = true
 			if !info.ModTime().Equal(newTime) {
 				t.Errorf("expected time %v, lstat time %v", newTime, info.ModTime())

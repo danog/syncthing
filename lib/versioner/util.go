@@ -79,7 +79,7 @@ func retrieveVersions(fileSystem fs.Filesystem) (map[string][]FileVersion, error
 
 	err := fileSystem.Walk(fs.NewPath("."), func(path *fs.Path, f fs.FileInfo, err error) error {
 		// Skip root (which is ok to be a symlink)
-		if path == "." {
+		if path.String() == "." {
 			return nil
 		}
 
@@ -100,12 +100,12 @@ func retrieveVersions(fileSystem fs.Filesystem) (map[string][]FileVersion, error
 
 		modTime := f.ModTime().Truncate(time.Second)
 
-		path = osutil.NormalizedFilename(path)
+		pathStr := osutil.NormalizedFilename(path.String())
 
-		name, tag := UntagFilename(path)
+		name, tag := UntagFilename(pathStr)
 		// Something invalid, assume it's an untagged file (trashcan versioner stuff)
 		if name == "" || tag == "" {
-			files[path] = append(files[path], FileVersion{
+			files[pathStr] = append(files[pathStr], FileVersion{
 				VersionTime: modTime,
 				ModTime:     modTime,
 				Size:        f.Size(),
@@ -355,7 +355,7 @@ func clean(ctx context.Context, versionsFs fs.Filesystem, toRemove func([]string
 	versionsPerFile := make(map[string][]string)
 	dirTracker := make(emptyDirTracker)
 
-	walkFn := func(path string, f fs.FileInfo, err error) error {
+	walkFn := func(path *fs.Path, f fs.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -366,24 +366,24 @@ func clean(ctx context.Context, versionsFs fs.Filesystem, toRemove func([]string
 		}
 
 		if f.IsDir() && !f.IsSymlink() {
-			dirTracker.addDir(path)
+			dirTracker.addDir(path.StringCopy())
 			return nil
 		}
 
 		// Regular file, or possibly a symlink.
-		dirTracker.addFile(path)
+		dirTracker.addFile(path.StringCopy())
 
-		name, _ := UntagFilename(path)
+		name, _ := UntagFilename(path.String())
 		if name == "" {
 			return nil
 		}
 
-		versionsPerFile[name] = append(versionsPerFile[name], path)
+		versionsPerFile[name] = append(versionsPerFile[name], path.StringCopy())
 
 		return nil
 	}
 
-	if err := versionsFs.Walk(".", walkFn); err != nil {
+	if err := versionsFs.Walk(fs.NewPath("."), walkFn); err != nil {
 		if !errors.Is(err, context.Canceled) {
 			l.Warnln("Versioner: scanning versions dir:", err)
 		}

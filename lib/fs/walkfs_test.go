@@ -32,7 +32,7 @@ func testWalkSkipSymlink(t *testing.T, fsType FilesystemType, uri string) {
 	if err := fs.CreateSymlink("target", "towalk/symlink"); err != nil {
 		t.Fatal(err)
 	}
-	if err := fs.Walk("towalk", func(path string, info FileInfo, err error) error {
+	if err := fs.Walk(NewPath("towalk"), func(path *Path, info FileInfo, err error) error {
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -70,7 +70,7 @@ func testWalkTraverseDirJunct(t *testing.T, fsType FilesystemType, uri string) {
 		t.Fatal(err)
 	}
 	traversed := false
-	if err := fs.Walk("towalk", func(path string, info FileInfo, err error) error {
+	if err := fs.Walk(NewPath("towalk"), func(path *Path, info FileInfo, err error) error {
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -108,11 +108,11 @@ func testWalkInfiniteRecursion(t *testing.T, fsType FilesystemType, uri string) 
 	dirjunctCnt := 0
 	fooCnt := 0
 	found := false
-	if err := fs.Walk("towalk", func(path string, info FileInfo, err error) error {
+	if err := fs.Walk(NewPath("towalk"), func(path *Path, info FileInfo, err error) error {
 		if err != nil {
 			if errors.Is(err, ErrInfiniteRecursion) {
 				if found {
-					t.Fatal("second infinite recursion detected at", path)
+					t.Fatal("second infinite recursion detected at", path.String())
 				}
 				found = true
 				return nil

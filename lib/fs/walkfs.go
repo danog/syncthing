@@ -81,6 +81,11 @@ func (p *Path) String() string {
 	return p.str
 }
 
+// Safe, copy version.
+func (p *Path) StringCopy() string {
+	return string(p.buf)
+}
+
 func (p *Path) Push(elem string) {
 	if len(p.separators) > 0 {
 		p.separators = append(p.separators, len(p.buf))
