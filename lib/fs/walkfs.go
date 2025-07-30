@@ -143,7 +143,7 @@ func (f *walkFilesystem) walk(path Path, info FileInfo, walkFn WalkFunc, ancesto
 
 	err = walkFn(path, info, nil)
 	if err != nil {
-		if info.IsDir() && err == SkipDir {
+		if info.IsDir() && errors.Is(err, SkipDir) {
 			return nil
 		}
 		return err
@@ -171,13 +171,13 @@ func (f *walkFilesystem) walk(path Path, info FileInfo, walkFn WalkFunc, ancesto
 		path.Push(name)
 		fileInfo, err := f.Lstat(path.String())
 		if err != nil {
-			if err := walkFn(path, fileInfo, err); err != nil && err != SkipDir {
+			if err := walkFn(path, fileInfo, err); err != nil && !errors.Is(err, SkipDir) {
 				return err
 			}
 		} else {
 			err = f.walk(path, fileInfo, walkFn, ancestors)
 			if err != nil {
-				if !fileInfo.IsDir() || err != SkipDir {
+				if !fileInfo.IsDir() || !errors.Is(err, SkipDir) {
 					return err
 				}
 			}
