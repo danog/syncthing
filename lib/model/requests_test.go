@@ -735,19 +735,19 @@ func TestRequestRemoteRenameChanged(t *testing.T) {
 	}
 
 	// Check outcome
-	tfs.Walk(".", func(path string, info fs.FileInfo, err error) error {
+	tfs.Walk(fs.NewPath("."), func(path *fs.Path, info fs.FileInfo, err error) error {
 		switch {
-		case path == a:
+		case path.String() == a:
 			t.Errorf(`File "a" was not removed`)
-		case path == b:
+		case path.String() == b:
 			if err := equalContents(tfs, b, data[a]); err != nil {
 				t.Error(`File "b" has unexpected content (renamed from a on remote)`)
 			}
-		case strings.HasPrefix(path, b+".sync-conflict-"):
-			if err := equalContents(tfs, path, otherData); err != nil {
+		case strings.HasPrefix(path.String(), b+".sync-conflict-"):
+			if err := equalContents(tfs, path.String(), otherData); err != nil {
 				t.Error(`Sync conflict of "b" has unexptected content`)
 			}
-		case path == "." || strings.HasPrefix(path, ".stfolder"):
+		case path.String() == "." || strings.HasPrefix(path.String(), ".stfolder"):
 		default:
 			t.Error("Found unexpected file", path)
 		}
@@ -826,7 +826,7 @@ func TestRequestRemoteRenameConflict(t *testing.T) {
 	// Check outcome
 	foundB := false
 	foundBConfl := false
-	tfs.Walk(".", func(path string, info fs.FileInfo, err error) error {
+	tfs.Walk(fs.NewPath("."), func(path *fs.Path, info fs.FileInfo, err error) error {
 		switch {
 		case path == a:
 			t.Errorf(`File "a" was not removed`)

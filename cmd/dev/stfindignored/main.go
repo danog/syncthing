@@ -32,7 +32,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	vfs.Walk(".", func(path string, info fs.FileInfo, err error) error {
+	vfs.Walk(fs.NewPath("."), func(path *fs.Path, info fs.FileInfo, err error) error {
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: %s: %v\n", path, err)
 			return fs.SkipDir

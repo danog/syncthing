@@ -4021,8 +4021,8 @@ func (f modtimeTruncatingFS) Stat(name string) (fs.FileInfo, error) {
 	return modtimeTruncatingFileInfo{trunc: f.trunc, FileInfo: info}, err
 }
 
-func (f modtimeTruncatingFS) Walk(root string, walkFn fs.WalkFunc) error {
-	return f.Filesystem.Walk(root, func(path string, info fs.FileInfo, err error) error {
+func (f modtimeTruncatingFS) Walk(root *fs.Path, walkFn fs.WalkFunc) error {
+	return f.Filesystem.Walk(root, func(path *fs.Path, info fs.FileInfo, err error) error {
 		if err != nil {
 			return walkFn(path, nil, err)
 		}

@@ -243,7 +243,7 @@ const walkFailureEventDesc = "Unexpected error while walking the filesystem duri
 func (w *walker) scan(ctx context.Context, toHashChan chan<- protocol.FileInfo, finishedChan chan<- ScanResult) {
 	hashFiles := w.walkAndHashFiles(ctx, toHashChan, finishedChan)
 	if len(w.Subs) == 0 {
-		if err := w.Filesystem.Walk(".", hashFiles); isWarnableError(err) {
+		if err := w.Filesystem.Walk(fs.NewPath("."), hashFiles); isWarnableError(err) {
 			w.EventLogger.Log(events.Failure, walkFailureEventDesc)
 			l.Warnf("Aborted scan due to an unexpected error: %v", err)
 		}
@@ -253,7 +253,7 @@ func (w *walker) scan(ctx context.Context, toHashChan chan<- protocol.FileInfo, 
 				l.Debugf("%v: Skip walking %v as it is below a symlink", w, sub)
 				continue
 			}
-			if err := w.Filesystem.Walk(sub, hashFiles); isWarnableError(err) {
+			if err := w.Filesystem.Walk(fs.NewPath(sub), hashFiles); isWarnableError(err) {
 				w.EventLogger.Log(events.Failure, walkFailureEventDesc)
 				l.Warnf("Aborted scan of path '%v' due to an unexpected error: %v", sub, err)
 			}
@@ -274,7 +274,7 @@ func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protoco
 	now := time.Now()
 	ignoredParent := ""
 
-	return func(path fs.Path, info fs.FileInfo, err error) error {
+	return func(path *fs.Path, info fs.FileInfo, err error) error {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -312,18 +312,18 @@ func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protoco
 
 		// Just in case the filesystem doesn't produce the normalization the OS
 		// uses, and we use internally.
-		nonNormPath := path
-		path = normalizePath(path.String())
+		nonNormPath := path.String()
+		pathNormalized := normalizePath(nonNormPath)
 
-		if m := w.Matcher.Match(path.String()); m.IsIgnored() {
-			l.Debugln(w, "ignored (patterns):", path)
+		if m := w.Matcher.Match(pathNormalized); m.IsIgnored() {
+			l.Debugln(w, "ignored (patterns):", pathNormalized)
 			// Only descend if matcher says so and the current file is not a symlink.
 			if err != nil || m.CanSkipDir() || info.IsSymlink() {
 				return skip
 			}
 			// If the parent wasn't ignored already, set this path as the "highest" ignored parent
-			if info.IsDir() && (ignoredParent == "" || !fs.IsParent(path, ignoredParent)) {
-				ignoredParent = path
+			if info.IsDir() && (ignoredParent == "" || !fs.IsParent(pathNormalized, ignoredParent)) {
+				ignoredParent = pathNormalized
 			}
 			return nil
 		}
@@ -332,23 +332,23 @@ func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protoco
 			// No need reporting errors for files that don't exist (e.g. scan
 			// due to filesystem watcher)
 			if !fs.IsNotExist(err) {
-				handleError(ctx, "scan", path, err, finishedChan)
+				handleError(ctx, "scan", pathNormalized, err, finishedChan)
 			}
 			return skip
 		}
 
-		if path == "." {
+		if pathNormalized == "." {
 			return nil
 		}
 
-		if path != nonNormPath {
+		if pathNormalized != nonNormPath {
 			if !w.AutoNormalize {
 				// We're not authorized to do anything about it, so complain and skip.
 				handleError(ctx, "normalizing path", nonNormPath, errUTF8Normalization, finishedChan)
 				return skip
 			}
 
-			path, err = w.applyNormalization(nonNormPath, path, info)
+			pathNormalized, err = w.applyNormalization(nonNormPath, pathNormalized, info)
 			if err != nil {
 				handleError(ctx, "normalizing path", nonNormPath, err, finishedChan)
 				return skip
@@ -357,21 +357,21 @@ func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protoco
 
 		if ignoredParent == "" {
 			// parent isn't ignored, nothing special
-			if err := w.handleItem(ctx, path, info, toHashChan, finishedChan); err != nil {
-				handleError(ctx, "scan", path, err, finishedChan)
+			if err := w.handleItem(ctx, pathNormalized, info, toHashChan, finishedChan); err != nil {
+				handleError(ctx, "scan", pathNormalized, err, finishedChan)
 				return skip
 			}
 			return nil
 		}
 
 		// Part of current path below the ignored (potential) parent
-		rel := strings.TrimPrefix(path, ignoredParent+string(fs.PathSeparator))
+		rel := strings.TrimPrefix(pathNormalized, ignoredParent+string(fs.PathSeparator))
 
 		// ignored path isn't actually a parent of the current path
-		if rel == path {
+		if rel == pathNormalized {
 			ignoredParent = ""
-			if err := w.handleItem(ctx, path, info, toHashChan, finishedChan); err != nil {
-				handleError(ctx, "scan", path, err, finishedChan)
+			if err := w.handleItem(ctx, pathNormalized, info, toHashChan, finishedChan); err != nil {
+				handleError(ctx, "scan", pathNormalized, err, finishedChan)
 				return skip
 			}
 			return nil
@@ -390,7 +390,7 @@ func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protoco
 				return skip
 			}
 			if err = w.handleItem(ctx, ignoredParent, info, toHashChan, finishedChan); err != nil {
-				handleError(ctx, "scan", path, err, finishedChan)
+				handleError(ctx, "scan", pathNormalized, err, finishedChan)
 				return skip
 			}
 		}

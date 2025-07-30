@@ -199,7 +199,7 @@ func (m *metricsFS) SymlinksSupported() bool {
 	return m.next.SymlinksSupported()
 }
 
-func (m *metricsFS) Walk(name string, walkFn WalkFunc) error {
+func (m *metricsFS) Walk(name *Path, walkFn WalkFunc) error {
 	defer m.account(metricOpWalk)(-1)
 	return m.next.Walk(name, walkFn)
 }

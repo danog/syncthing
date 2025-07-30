@@ -606,13 +606,13 @@ func cleanSymlinks(filesystem fs.Filesystem, dir string) {
 		// should leave alone. Deduplicated files, for example.
 		return
 	}
-	filesystem.Walk(dir, func(path string, info fs.FileInfo, err error) error {
+	filesystem.Walk(fs.NewPath(dir), func(path *fs.Path, info fs.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 		if info.IsSymlink() {
 			l.Infoln("Removing incorrectly versioned symlink", path)
-			filesystem.Remove(path)
+			filesystem.Remove(path.String())
 			return fs.SkipDir
 		}
 		return nil

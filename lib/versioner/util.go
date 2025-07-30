@@ -77,7 +77,7 @@ func UntagFilename(path string) (string, string) {
 func retrieveVersions(fileSystem fs.Filesystem) (map[string][]FileVersion, error) {
 	files := make(map[string][]FileVersion)
 
-	err := fileSystem.Walk(".", func(path string, f fs.FileInfo, err error) error {
+	err := fileSystem.Walk(fs.NewPath("."), func(path *fs.Path, f fs.FileInfo, err error) error {
 		// Skip root (which is ok to be a symlink)
 		if path == "." {
 			return nil

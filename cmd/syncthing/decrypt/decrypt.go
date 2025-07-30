@@ -86,18 +86,18 @@ func (c *CLI) walk() error {
 		dstFs = fs.NewFilesystem(fs.FilesystemTypeBasic, c.To)
 	}
 
-	return srcFs.Walk(".", func(path string, info fs.FileInfo, err error) error {
+	return srcFs.Walk(fs.NewPath("."), func(path *fs.Path, info fs.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 		if !info.IsRegular() {
 			return nil
 		}
-		if fs.IsInternal(path) {
+		if fs.IsInternal(path.String()) {
 			return nil
 		}
 
-		return c.withContinue(c.process(srcFs, dstFs, path))
+		return c.withContinue(c.process(srcFs, dstFs, path.String()))
 	})
 }
 

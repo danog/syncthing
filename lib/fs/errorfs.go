@@ -45,7 +45,7 @@ func (fs *errorFilesystem) RemoveAll(_ string) error                     { retur
 func (fs *errorFilesystem) Rename(_, _ string) error                     { return fs.err }
 func (fs *errorFilesystem) Stat(_ string) (FileInfo, error)              { return nil, fs.err }
 func (*errorFilesystem) SymlinksSupported() bool                         { return false }
-func (fs *errorFilesystem) Walk(_ Path, _ WalkFunc) error                { return fs.err }
+func (fs *errorFilesystem) Walk(_ *Path, _ WalkFunc) error               { return fs.err }
 func (fs *errorFilesystem) Unhide(_ string) error                        { return fs.err }
 func (fs *errorFilesystem) Hide(_ string) error                          { return fs.err }
 func (fs *errorFilesystem) Glob(_ string) ([]string, error)              { return nil, fs.err }

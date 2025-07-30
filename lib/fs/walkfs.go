@@ -99,6 +99,25 @@ func (p *Path) Pop() {
 	p.str = unsafe.String(unsafe.SliceData(p.buf), len(p.buf))
 }
 
+func (p *Path) Canonicalize() error {
+	path, err := Canonicalize(p.String())
+	if err != nil {
+		return err
+	}
+	if path == p.String() {
+		return nil
+	}
+	p.buf = []byte(path)
+	p.separators = make([]int, 0, len(p.separators))
+	for idx, c := range p.buf {
+		if c == separator {
+			p.separators = append(p.separators, idx)
+		}
+	}
+	p.str = unsafe.String(unsafe.SliceData(p.buf), len(p.buf))
+	return nil
+}
+
 // WalkFunc is the type of the function called for each file or directory
 // visited by Walk. The path argument contains the argument to Walk as a
 // prefix; that is, if Walk is called with "dir", which is a directory
@@ -113,7 +132,7 @@ func (p *Path) Pop() {
 // on a directory, Walk skips the directory's contents entirely.
 // If the function returns SkipDir when invoked on a non-directory file,
 // Walk skips the remaining files in the containing directory.
-type WalkFunc func(path Path, info FileInfo, err error) error
+type WalkFunc func(path *Path, info FileInfo, err error) error
 
 type walkFilesystem struct {
 	Filesystem
@@ -134,9 +153,9 @@ func NewWalkFilesystem(next Filesystem) Filesystem {
 }
 
 // walk recursively descends path, calling walkFn.
-func (f *walkFilesystem) walk(path Path, info FileInfo, walkFn WalkFunc, ancestors *ancestorDirList) error {
+func (f *walkFilesystem) walk(path *Path, info FileInfo, walkFn WalkFunc, ancestors *ancestorDirList) error {
 	l.Debugf("walk: path=%s", path)
-	path, err := Canonicalize(path)
+	err := path.Canonicalize()
 	if err != nil {
 		return err
 	}
@@ -192,8 +211,8 @@ func (f *walkFilesystem) walk(path Path, info FileInfo, walkFn WalkFunc, ancesto
 // order, which makes the output deterministic but means that for very
 // large directories Walk can be inefficient.
 // Walk does not follow symbolic links.
-func (f *walkFilesystem) Walk(root string, walkFn WalkFunc) error {
-	info, err := f.Lstat(root)
+func (f *walkFilesystem) Walk(root *Path, walkFn WalkFunc) error {
+	info, err := f.Lstat(root.String())
 	if err != nil {
 		return walkFn(root, nil, err)
 	}
