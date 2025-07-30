@@ -879,7 +879,7 @@ func TestSkipIgnoredDirs(t *testing.T) {
 
 	fn := w.walkAndHashFiles(context.Background(), nil, nil)
 
-	if err := fn(name, stat, nil); err != fs.SkipDir {
+	if err := fn(fs.NewPath(name), stat, nil); err != fs.SkipDir {
 		t.Errorf("Expected %v, got %v", fs.SkipDir, err)
 	}
 }

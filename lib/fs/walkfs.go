@@ -159,7 +159,7 @@ func NewWalkFilesystem(next Filesystem) Filesystem {
 
 // walk recursively descends path, calling walkFn.
 func (f *walkFilesystem) walk(path *Path, info FileInfo, walkFn WalkFunc, ancestors *ancestorDirList) error {
-	l.Debugf("walk: path=%s", path)
+	l.Debugf("walk: path=%s", path.String())
 	err := path.Canonicalize()
 	if err != nil {
 		return err

@@ -34,11 +34,11 @@ func main() {
 
 	vfs.Walk(fs.NewPath("."), func(path *fs.Path, info fs.FileInfo, err error) error {
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: %s: %v\n", path, err)
+			fmt.Fprintf(os.Stderr, "Warning: %s: %v\n", path.String(), err)
 			return fs.SkipDir
 		}
-		if ign.Match(path).IsIgnored() {
-			fmt.Println(path)
+		if ign.Match(path.String()).IsIgnored() {
+			fmt.Println(path.String())
 		}
 		return nil
 	})
