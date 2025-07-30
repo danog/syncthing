@@ -630,7 +630,7 @@ func (*fakeFS) SymlinksSupported() bool {
 	return false
 }
 
-func (*fakeFS) Walk(_ string, _ WalkFunc) error {
+func (*fakeFS) Walk(_ Path, _ WalkFunc) error {
 	return errors.New("not implemented")
 }
 

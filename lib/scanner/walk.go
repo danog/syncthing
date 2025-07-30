@@ -274,7 +274,7 @@ func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protoco
 	now := time.Now()
 	ignoredParent := ""
 
-	return func(path string, info fs.FileInfo, err error) error {
+	return func(path fs.Path, info fs.FileInfo, err error) error {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -291,21 +291,21 @@ func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protoco
 			skip = fs.SkipDir
 		}
 
-		if !utf8.ValidString(path) {
-			handleError(ctx, "scan", path, errUTF8Invalid, finishedChan)
+		if !utf8.ValidString(path.String()) {
+			handleError(ctx, "scan", path.String(), errUTF8Invalid, finishedChan)
 			return skip
 		}
 
-		if fs.IsTemporary(path) {
-			l.Debugln(w, "temporary:", path, "err:", err)
+		if fs.IsTemporary(path.String()) {
+			l.Debugln(w, "temporary:", path.String(), "err:", err)
 			if err == nil && info.IsRegular() && info.ModTime().Add(w.TempLifetime).Before(now) {
-				w.Filesystem.Remove(path)
-				l.Debugln(w, "removing temporary:", path, info.ModTime())
+				w.Filesystem.Remove(path.String())
+				l.Debugln(w, "removing temporary:", path.String(), info.ModTime())
 			}
 			return nil
 		}
 
-		if fs.IsInternal(path) {
+		if fs.IsInternal(path.String()) {
 			l.Debugln(w, "ignored (internal):", path)
 			return skip
 		}
@@ -313,9 +313,9 @@ func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protoco
 		// Just in case the filesystem doesn't produce the normalization the OS
 		// uses, and we use internally.
 		nonNormPath := path
-		path = normalizePath(path)
+		path = normalizePath(path.String())
 
-		if m := w.Matcher.Match(path); m.IsIgnored() {
+		if m := w.Matcher.Match(path.String()); m.IsIgnored() {
 			l.Debugln(w, "ignored (patterns):", path)
 			// Only descend if matcher says so and the current file is not a symlink.
 			if err != nil || m.CanSkipDir() || info.IsSymlink() {

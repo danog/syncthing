@@ -132,7 +132,7 @@ func (fs *logFilesystem) SymlinksSupported() bool {
 	return supported
 }
 
-func (fs *logFilesystem) Walk(root string, walkFn WalkFunc) error {
+func (fs *logFilesystem) Walk(root Path, walkFn WalkFunc) error {
 	err := fs.Filesystem.Walk(root, walkFn)
 	l.Debugln(fs.getCaller(), fs.Type(), fs.URI(), "Walk", root, walkFn, err)
 	return err

@@ -322,11 +322,11 @@ func (f *caseFilesystem) CreateSymlink(target, name string) error {
 	return nil
 }
 
-func (f *caseFilesystem) Walk(root string, walkFn WalkFunc) error {
+func (f *caseFilesystem) Walk(root Path, walkFn WalkFunc) error {
 	// Walking the filesystem is likely (in Syncthing's case certainly) done
 	// to pick up external changes, for which caching is undesirable.
 	f.dropCache()
-	if err := f.checkCase(root); err != nil {
+	if err := f.checkCase(root.String()); err != nil {
 		return err
 	}
 	return f.Filesystem.Walk(root, walkFn)
