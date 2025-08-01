@@ -64,24 +64,26 @@ func HashFile(ctx context.Context, folderID string, fs fs.Filesystem, path strin
 // workers are used in parallel. The outbox will become closed when the inbox
 // is closed and all items handled.
 type parallelHasher struct {
-	folderID string
-	fs       fs.Filesystem
-	outbox   chan<- ScanResult
-	inbox    <-chan protocol.FileInfo
-	counter  Counter
-	done     chan<- struct{}
-	wg       sync.WaitGroup
+	folderID     string
+	fs           fs.Filesystem
+	outbox       chan<- ScanResult
+	inbox        <-chan protocol.FileInfo
+	backpressure <-chan any
+	counter      Counter
+	done         chan<- struct{}
+	wg           sync.WaitGroup
 }
 
-func newParallelHasher(ctx context.Context, folderID string, fs fs.Filesystem, workers int, outbox chan<- ScanResult, inbox <-chan protocol.FileInfo, counter Counter, done chan<- struct{}) {
+func newParallelHasher(ctx context.Context, folderID string, fs fs.Filesystem, workers int, outbox chan<- ScanResult, backpressure <-chan any, inbox <-chan protocol.FileInfo, counter Counter, done chan<- struct{}) {
 	ph := &parallelHasher{
-		folderID: folderID,
-		fs:       fs,
-		outbox:   outbox,
-		inbox:    inbox,
-		counter:  counter,
-		done:     done,
-		wg:       sync.NewWaitGroup(),
+		folderID:     folderID,
+		fs:           fs,
+		outbox:       outbox,
+		inbox:        inbox,
+		backpressure: backpressure,
+		counter:      counter,
+		done:         done,
+		wg:           sync.NewWaitGroup(),
 	}
 
 	ph.wg.Add(workers)
@@ -136,6 +138,15 @@ func (ph *parallelHasher) hashFiles(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		}
+
+		select {
+		case _, ok := <-ph.backpressure:
+			if !ok {
+				return
+			}
+		case <-ctx.Done():
+			return
+		}
 	}
 }
 
@@ -144,6 +155,7 @@ func (ph *parallelHasher) closeWhenDone() {
 	// In case the hasher aborted on context, wait for filesystem
 	// walking/progress routine to finish.
 	for range ph.inbox {
+		<-ph.backpressure
 	}
 	if ph.done != nil {
 		close(ph.done)

@@ -675,16 +675,20 @@ func (f *folder) scanSubdirsChangedAndNew(subDirs []string, batch *scanBatch) (i
 		XattrFilter:           f.XattrFilter,
 	}
 	var fchan chan scanner.ScanResult
+	var backpressure chan any
+	defer close(backpressure)
+
 	if f.Type == config.FolderTypeReceiveEncrypted {
-		fchan = scanner.WalkWithoutHashing(scanCtx, scanConfig)
+		fchan, backpressure = scanner.WalkWithoutHashing(scanCtx, scanConfig)
 	} else {
-		fchan = scanner.Walk(scanCtx, scanConfig)
+		fchan, backpressure = scanner.Walk(scanCtx, scanConfig)
 	}
 
 	alreadyUsedOrExisting := make(map[string]struct{})
 	for res := range fchan {
 		if res.Err != nil {
 			f.newScanError(res.Path, res.Err)
+			backpressure <- nil
 			continue
 		}
 
@@ -692,7 +696,9 @@ func (f *folder) scanSubdirsChangedAndNew(subDirs []string, batch *scanBatch) (i
 			// Prevent a race between the scan aborting due to context
 			// cancellation and releasing the snapshot in defer here.
 			scanCancel()
+			close(backpressure)
 			for range fchan {
+				backpressure <- nil
 			}
 			return changes, err
 		}
@@ -705,11 +711,13 @@ func (f *folder) scanSubdirsChangedAndNew(subDirs []string, batch *scanBatch) (i
 
 		switch f.Type {
 		case config.FolderTypeReceiveOnly, config.FolderTypeReceiveEncrypted:
+			backpressure <- nil
 		default:
 			if nf, ok := f.findRename(res.File, alreadyUsedOrExisting); ok {
 				if ok, err := batch.Update(nf); err != nil {
 					return 0, err
 				} else if ok {
+					backpressure <- nil
 					changes++
 				}
 			}

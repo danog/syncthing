@@ -138,7 +138,7 @@ func (w *walker) walk(ctx context.Context) (chan ScanResult, chan any) {
 	// and feed inputs directly from the walker.
 	if w.ProgressTickIntervalS < 0 {
 		newParallelHasher(ctx, w.Folder, w.Filesystem, w.Hashers, finishedChan, backpressureChan, toHashChan, nil, nil)
-		return finishedChan
+		return finishedChan, backpressureChan
 	}
 
 	// Defaults to every 2 seconds.
@@ -261,7 +261,7 @@ func (w *walker) walkWithoutHashing(ctx context.Context) (chan ScanResult, chan 
 
 	// A routine which walks the filesystem tree, and sends files which have
 	// been modified to the counter routine.
-	go w.scan(ctx, toHashChan, finishedChan)
+	go w.scan(ctx, toHashChan, backpressureChan, finishedChan)
 
 	go func() {
 		for file := range toHashChan {
@@ -270,13 +270,13 @@ func (w *walker) walkWithoutHashing(ctx context.Context) (chan ScanResult, chan 
 		close(finishedChan)
 	}()
 
-	return finishedChan
+	return finishedChan, backpressureChan
 }
 
 const walkFailureEventDesc = "Unexpected error while walking the filesystem during scan"
 
-func (w *walker) scan(ctx context.Context, toHashChan chan<- protocol.FileInfo, finishedChan chan<- ScanResult) {
-	hashFiles := w.walkAndHashFiles(ctx, toHashChan, finishedChan)
+func (w *walker) scan(ctx context.Context, toHashChan chan<- protocol.FileInfo, backpressureChan chan<- any, finishedChan chan<- ScanResult) {
+	hashFiles := w.walkAndHashFiles(ctx, toHashChan, backpressureChan, finishedChan)
 	if len(w.Subs) == 0 {
 		if err := w.Filesystem.Walk(".", hashFiles); isWarnableError(err) {
 			w.EventLogger.Log(events.Failure, walkFailureEventDesc)
@@ -305,7 +305,7 @@ func isWarnableError(err error) bool {
 		!errors.Is(err, context.Canceled) // folder restarting
 }
 
-func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protocol.FileInfo, finishedChan chan<- ScanResult) fs.WalkFunc {
+func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protocol.FileInfo, backpressureChan chan<- any, finishedChan chan<- ScanResult) fs.WalkFunc {
 	now := time.Now()
 	ignoredParent := ""
 
@@ -392,7 +392,7 @@ func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protoco
 
 		if ignoredParent == "" {
 			// parent isn't ignored, nothing special
-			if err := w.handleItem(ctx, path, info, toHashChan, finishedChan); err != nil {
+			if err := w.handleItem(ctx, path, info, toHashChan, backpressureChan, finishedChan); err != nil {
 				handleError(ctx, "scan", path, err, finishedChan)
 				return skip
 			}
