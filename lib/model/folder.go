@@ -698,7 +698,6 @@ func (f *folder) scanSubdirsChangedAndNew(subDirs []string, batch *scanBatch) (i
 			scanCancel()
 			close(backpressure)
 			for range fchan {
-				backpressure <- nil
 			}
 			return changes, err
 		}
@@ -711,17 +710,16 @@ func (f *folder) scanSubdirsChangedAndNew(subDirs []string, batch *scanBatch) (i
 
 		switch f.Type {
 		case config.FolderTypeReceiveOnly, config.FolderTypeReceiveEncrypted:
-			backpressure <- nil
 		default:
 			if nf, ok := f.findRename(res.File, alreadyUsedOrExisting); ok {
 				if ok, err := batch.Update(nf); err != nil {
 					return 0, err
 				} else if ok {
-					backpressure <- nil
 					changes++
 				}
 			}
 		}
+		backpressure <- nil
 	}
 
 	return changes, nil
