@@ -84,11 +84,11 @@ type ScanResult struct {
 	Path string // to be set in case Err != nil and File == nil
 }
 
-func Walk(ctx context.Context, cfg Config) chan ScanResult {
+func Walk(ctx context.Context, cfg Config) (chan ScanResult, chan any) {
 	return newWalker(cfg).walk(ctx)
 }
 
-func WalkWithoutHashing(ctx context.Context, cfg Config) chan ScanResult {
+func WalkWithoutHashing(ctx context.Context, cfg Config) (chan ScanResult, chan any) {
 	return newWalker(cfg).walkWithoutHashing(ctx)
 }
 
@@ -121,11 +121,12 @@ type walker struct {
 
 // Walk returns the list of files found in the local folder by scanning the
 // file system. Files are blockwise hashed.
-func (w *walker) walk(ctx context.Context) chan ScanResult {
+func (w *walker) walk(ctx context.Context) (chan ScanResult, chan any) {
 	l.Debugln(w, "Walk", w.Subs, w.Matcher)
 
 	toHashChan := make(chan protocol.FileInfo)
 	finishedChan := make(chan ScanResult)
+	backpressureChan := make(chan any)
 
 	// A routine which walks the filesystem tree, and sends files which have
 	// been modified to the counter routine.
@@ -134,7 +135,7 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 	// We're not required to emit scan progress events, just kick off hashers,
 	// and feed inputs directly from the walker.
 	if w.ProgressTickIntervalS < 0 {
-		newParallelHasher(ctx, w.Folder, w.Filesystem, w.Hashers, finishedChan, toHashChan, nil, nil)
+		newParallelHasher(ctx, w.Folder, w.Filesystem, w.Hashers, finishedChan, backpressureChan, toHashChan, nil, nil)
 		return finishedChan
 	}
 
@@ -168,7 +169,7 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 		done := make(chan struct{})
 		progress := newByteCounter()
 
-		newParallelHasher(ctx, w.Folder, w.Filesystem, w.Hashers, finishedChan, realToHashChan, progress, done)
+		newParallelHasher(ctx, w.Folder, w.Filesystem, w.Hashers, finishedChan, backpressureChan, realToHashChan, progress, done)
 
 		// A routine which actually emits the FolderScanProgress events
 		// every w.ProgressTicker ticks, until the hasher routines terminate.
@@ -215,14 +216,15 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 		close(realToHashChan)
 	}()
 
-	return finishedChan
+	return finishedChan, backpressureChan
 }
 
-func (w *walker) walkWithoutHashing(ctx context.Context) chan ScanResult {
+func (w *walker) walkWithoutHashing(ctx context.Context) (chan ScanResult, chan any) {
 	l.Debugln(w, "Walk without hashing", w.Subs, w.Matcher)
 
 	toHashChan := make(chan protocol.FileInfo)
 	finishedChan := make(chan ScanResult)
+	backpressureChan := make(chan any)
 
 	// A routine which walks the filesystem tree, and sends files which have
 	// been modified to the counter routine.
